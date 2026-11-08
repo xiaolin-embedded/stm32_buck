@@ -1,0 +1,46 @@
+name: Build firmware
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Debug and Release build
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build gcc-arm-none-eabi
+          arm-none-eabi-gcc --version
+          cmake --version
+          ninja --version
+
+      - name: Configure Debug
+        run: cmake --preset Debug
+
+      - name: Build Debug
+        run: cmake --build --preset Debug
+
+      - name: Configure Release
+        run: cmake --preset Release
+
+      - name: Build Release
+        run: cmake --build --preset Release
+
+      - name: Upload ELF files
+        uses: actions/upload-artifact@v4
+        with:
+          name: stm32_buck-elf
+          path: |
+            build/Debug/stm32_buck.elf
+            build/Release/stm32_buck.elf

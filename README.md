@@ -1,5 +1,7 @@
 # DPOS G4 BUCK — STM32G474 digital power supply
 
+[![Build firmware](https://github.com/xiaolin-embedded/stm32_buck/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/xiaolin-embedded/stm32_buck/actions/workflows/build.yml)
+
 Firmware for the **DPOS G4 BUCK V2** board: a 200 kHz synchronous buck with a
 100 kHz digital CC/CV loop, a serial shell and a 1 Hz telemetry monitor.
 No OLED, USB or SPI2 code is included.
@@ -154,11 +156,23 @@ changes.  Currents below 10 mA display as zero.
 - At no load and output off, a small residual voltage (~0.3 V) can appear
   from high-side MOSFET leakage.  A 1 kΩ–10 kΩ bleeder on the output
   discharges it; it is harmless with any normal load.
-- `stm32_buck.ioc` is **stale** and must not be regenerated: the peripheral
-  initialisation is hand-written in `Core/Src/app_*.c` and
-  `Core/Src/stm32g4xx_hal_msp.c`.  See the repository notes in
+- `stm32_buck.ioc.stale` is **archived** and must not be used to regenerate
+  code: the peripheral initialisation is hand-written in `Core/Src/app_*.c`
+  and `Core/Src/stm32g4xx_hal_msp.c`.  `.mxproject.stale` is archived for the
+  same reason.  See the repository notes in
   [docs/build-and-flash.md](docs/build-and-flash.md).
 - Reverse polarity is not protected; do not reverse the input.
+
+## Continuous integration
+
+Every push/PR to `main` builds both Debug and Release with GitHub Actions and
+uploads the ELFs as artifacts; see `.github/workflows/build.yml`.
+
+## License
+
+The application code is released under the **MIT License**; see
+[LICENSE](LICENSE).  Third-party components (STM32G4 HAL, CMSIS, FreeRTOS)
+keep their original licenses; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ## Documentation
 
@@ -181,6 +195,10 @@ Core/Src/main.c                clock, GPIO, init and kernel start
 Core/Src/stm32g4xx_hal_msp.c   pin/DMA/NVIC setup
 Core/Src/stm32g4xx_it.c        exception vectors and HAL timebase IRQ
 cmake/                         CMake toolchain and generated source lists
+.github/workflows/build.yml    CI: Debug + Release build
 docs/                          design, control and build documentation
 Drivers/ Middlewares/          STM32G4 HAL/CMSIS and FreeRTOS
+LICENSE                        MIT license for the application code
+THIRD_PARTY_NOTICES.md         HAL/CMSIS/FreeRTOS license notices
+stm32_buck.ioc.stale           archived CubeMX file, do not regenerate
 ```

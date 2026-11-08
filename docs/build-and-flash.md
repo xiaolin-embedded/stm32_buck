@@ -204,10 +204,22 @@ Before publishing:
 - Do not commit `build/`; it is ignored.
 - Record the board revision and toolchain versions in the README or release
   notes (`arm-none-eabi-gcc 13.2.1`, CMake 3.28, Ninja 1.11).
-- `stm32_buck.ioc` is stale: it does not match the hand-written peripheral
-  initialisation.  Commit it only with a clear warning, or remove it from the
-  repository so nobody runs CubeMX "Generate Code" on it.  The firmware uses
-  `Core/Src/app_*.c` and `Core/Src/stm32g4xx_hal_msp.c` as the source of
-  truth.
+- `stm32_buck.ioc.stale` is archived: it does not match the hand-written
+  peripheral initialisation.  It was renamed so nobody runs CubeMX
+  "Generate Code" on it; `.mxproject.stale` is archived for the same reason.
+  The firmware uses `Core/Src/app_*.c` and
+  `Core/Src/stm32g4xx_hal_msp.c` as the source of truth.
 - The firmware version string is `FW_VERSION` in `Core/Inc/app_config.h`;
   keep it in sync with the git tag.
+
+## 8. Continuous integration
+
+`.github/workflows/build.yml` runs on every push/PR to `main`:
+
+1. installs CMake, Ninja and `gcc-arm-none-eabi`;
+2. configures and builds the Debug preset;
+3. configures and builds the Release preset;
+4. uploads both ELFs as the `stm32_buck-elf` artifact.
+
+The same commands can be run locally; the workflow is the reference CI
+recipe.
