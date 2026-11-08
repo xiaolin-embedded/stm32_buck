@@ -1,0 +1,30 @@
+# Build output
+build/
+
+# Object / dependency / binary artefacts
+*.o
+*.d
+*.su
+*.elf
+*.bin
+*.hex
+*.map
+compile_commands.json
+
+# Editor/IDE state
+.vscode/
+.idea/
+*.swp
+*~
+
+# CMake user overrides
+CMakeUserPresets.json
+
+# OS noise
+.DS_Store
+Thumbs.db
+
+# Patch/backup leftovers
+*.orig
+*.rej
+*.bak
