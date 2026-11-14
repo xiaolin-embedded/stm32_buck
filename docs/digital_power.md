@@ -129,14 +129,24 @@ That is expected: the supply is a current-limited voltage source.
 | VIN_OV | Vin > 50 V | latch, outputs off |
 | VOUT_OV | Vout > min(max(vref, vset) + 1.5 V, 40 V) | latch, outputs off |
 | IOUT_OC (sustained) | Iout > ilim + 0.5 A for 2 ms | latch, outputs off |
-| IOUT_OC (fast) | Iout > 6 A immediately | latch, outputs off |
+| IOUT_OC (software fast) | filtered Iout > 6 A immediately | latch, outputs off |
+| PEAK_OC (hardware) | COMP3: I_PEAK_DETC > DAC1 threshold (≈7 A) | latch, outputs off in µs |
 
 - Outputs are disabled immediately through `HRTIM1->sCommonRegs.ODISR`.
 - Faults latch; `reset` stops the output and clears them.  A real fault must
   be removed before restarting.
 - The 2 ms debounce is deliberate: a load step into CC briefly exceeds
-  `ilim + 0.5 A` while the current loop takes over.  The fast 6 A trip still
-  protects against a hard short or a failed current loop.
+  `ilim + 0.5 A` while the current loop takes over.  The filtered 6 A trip and
+  the hardware peak comparator protect against a hard short or a failed
+  current loop.
+- **Hardware peak comparator**: U7A amplifies `I_PEAK_DETC` by about 7.4× over
+  the 0.03 Ω shunt, i.e. ≈222 mV/A.  DAC1_CH1 sets the threshold (≈7 A →
+  code ≈1930).  COMP3 compares PA0 against the DAC; a rising edge triggers
+  `COMP1_2_3_IRQHandler`, which sets `PEAK_OC` and disables the outputs
+  immediately through `ODISR`.  This path is independent of the ADC filter
+  and the 100 kHz loop.  `Power_Start()` refuses to start if the comparator
+  output is still high, so a persistent short cannot be re-enabled by simply
+  clearing the fault.
 - `Power_EmergencyStop()` is called from `Error_Handler`, the hard/memory
   fault handlers and the FreeRTOS hooks so a firmware failure does not leave
   the bridge switching.
@@ -184,15 +194,17 @@ That is expected: the supply is a current-limited voltage source.
 - The supply should enter `RUN/CC`, Vout = Ilim × R, and stay stable.
 - If CC is slow to take over, increase `Kp_I`/`Ki_I` slightly; if it
   oscillates, reduce them.
-- The current loop is average current at 100 kHz, not a cycle-by-cycle peak
-  comparator.  A hard short is handled by the 6 A fast trip.
+- The current loop is average current at 100 kHz.  A hard short is handled by
+  the 6 A software fast trip and the ≈7 A hardware COMP3/DAC comparator; the
+  hardware path is the fast one.
 
 ### Load steps into CC
 
 - A large step (e.g. 10 Ω → 2 Ω) briefly exceeds `ilim + 0.5 A`; the 2 ms
   debounce lets the current loop settle without a false fault.
 - A step that produces more than 6 A (e.g. 10 Ω → 1 Ω at 5 V) trips the fast
-  protection; that is intended, because the 5 A inductor is being exceeded.
+  protection; the ≈7 A hardware comparator may catch it first.  This is
+  intended, because the 5 A inductor is being exceeded.
 
 ### Calibration
 
@@ -214,7 +226,8 @@ That is expected: the supply is a current-limited voltage source.
 - A downward `vset` change must ramp, and the OV limit must follow
   `max(vref, vset)`, otherwise it false-trips VOUT_OV.
 - A load step into CC needs the OC debounce; otherwise the transient trips
-  IOUT_OC.
+  IOUT_OC.  The hardware peak comparator threshold must sit above the normal
+  ripple and below the inductor/switch stress; ≈7 A on this board.
 - The input divider and Vout divider are not exact; calibrate or bake in
   gains.
 - At no load/output off, a ~0.3 V residual can come from high-side MOSFET
@@ -239,3 +252,6 @@ Checklist:
 - [ ] `vset 1800` while running: ramps down, no VOUT_OV.
 - [ ] `poweroff`: green off, blue heartbeat, output ≈ 0 with a bleeder/load.
 - [ ] Fault test (e.g. input below UV): red, `reset` clears.
+- [ ] Peak comparator: with a current-limited supply/electronic load, raise the
+  current above ~7 A; `PEAK_OC` should latch within microseconds.  If the
+  threshold is off, trim `IOC_PEAK_MA` / `IOC_PEAK_MV_PER_A`.

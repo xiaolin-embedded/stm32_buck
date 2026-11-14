@@ -12,6 +12,8 @@
  *   PA9  HRTIM_CHA2 low-side gate
  *   PA2  USART2_TX  shell
  *   PA3  USART2_RX  shell
+ *   PA0  COMP3_INP  I_PEAK_DETC (fast peak-current trip)
+ *   PA4  DAC1_CH1   comparator threshold (internal to COMP3)
  *   PB0/PB1/PB2     red/green/blue LED, active low
  *
  * USB, SPI2 and I2C are not used; those pins stay unconfigured.
@@ -53,9 +55,17 @@
 #define VOUT_OV_ABS_MV      40000u
 #define IOC_MARGIN_MA       500u
 #define IOC_ABS_MA          6000u
-#define IOC_FAST_MA         6000u   /* hard-short trip, no debounce */
+#define IOC_FAST_MA         6000u   /* software hard-short trip, no debounce */
 #define IOC_DEBOUNCE_MS     2u      /* sustained limit+margin must last this long */
 #define IOC_DEBOUNCE_TICKS  ((IOC_DEBOUNCE_MS * CONTROL_FREQ_HZ) / 1000u)
+
+/* Hardware peak-current comparator: COMP3 (PA0 = I_PEAK_DETC) against
+ * DAC1_CH1 (internal).  U7A gives about 7.4x over the 0.03 ohm shunt,
+ * i.e. ~222 mV/A.  This is a fast backup for a hard short; the exact
+ * threshold depends on resistor tolerance. */
+#define IOC_PEAK_MA         7000u
+#define IOC_PEAK_MV_PER_A   222.2f
+#define IOC_PEAK_DAC_CODE   ((uint32_t)(((float)IOC_PEAK_MA * IOC_PEAK_MV_PER_A / 1000.0f) * 4095.0f / 3300.0f + 0.5f))
 
 /* -------------------------------------------------------------------------- */
 /* Loop shaping                                                                */

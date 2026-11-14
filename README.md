@@ -14,7 +14,7 @@ No OLED, USB or SPI2 code is included.
 | Minimum practical input | ~12 V (9 V gate-drive rail / LM5109 UVLO) |
 | Output voltage | **1–40 V** (buck only, Vout < Vin) |
 | Maximum output current | **5 A** (22 µH / 5 A inductor) |
-| Current limit | `iset` 0–5000 mA; fast trip > 6 A, sustained trip > ilim+0.5 A for 2 ms |
+| Current limit | `iset` 0–5000 mA; software fast trip > 6 A, sustained > ilim+0.5 A for 2 ms; hardware peak trip ≈7 A |
 | Switching frequency | 200 kHz HRTIM, 118 ns dead time |
 | Control loop | 100 kHz average-current / voltage double loop |
 | MCU clock | 170 MHz from the 8 MHz HSE, automatic HSI fallback |
@@ -27,6 +27,7 @@ No OLED, USB or SPI2 code is included.
 - Incremental PI(D) voltage and current loops; the lower duty wins (CV/CC)
 - Soft start and controlled ramp-down at 100 V/s
 - Input UV/OV, output OV, average current limit, fast short-circuit trip
+- Hardware COMP3 + DAC1 peak-current comparator for a fast hard-short trip
 - Latched faults with reset command and RGB indication
 - Serial shell: version, status, setpoints, power on/off, 1 Hz monitor
 - Compile-time calibration gains for Vin/Vout/Iout (measured board values)
@@ -41,6 +42,7 @@ No OLED, USB or SPI2 code is included.
 | Vout sense | PA6 | ADC2_IN3, 33k/2k divider (17.5:1 nominal) |
 | Vin sense | PA7 | ADC2_IN4, 33k/2k divider (17.5:1 nominal) |
 | Shell TX/RX | PA2/PA3 | USART2, AF7, 115200 8N1 |
+| Peak comparator | PA0 / PA4 | COMP3_INP = I_PEAK_DETC, DAC1_CH1 = threshold |
 | RGB LED | PB0/PB1/PB2 | red / green / blue, active low |
 
 LED behaviour:
@@ -123,8 +125,9 @@ procedure.
 - Soft start: `vref` ramps at 1 mV / 10 µs (100 V/s), both up and down.
 - VOUT_OV: `max(vref, vset) + 1.5 V`, capped at 40 V, so a normal downward
   setpoint change cannot false-trip.
-- IOUT_OC: `ilim + 0.5 A` must persist for 2 ms; above 6 A trips immediately
-  (hard short / current-loop failure).
+- IOUT_OC: `ilim + 0.5 A` must persist for 2 ms; the software fast trip is 6 A;
+  the hardware COMP3/DAC comparator trips at about 7 A peak within microseconds
+  and reports `PEAK_OC`.
 - Faults latch; `reset` (or a power cycle) clears them.
 
 ## Calibration
@@ -148,9 +151,9 @@ changes.  Currents below 10 mA display as zero.
 - 5 A is the current limit of the 22 µH / 5 A inductor.  Continuous power is
   thermal-limited: the vendor runs 5 A at 10 V (50 W) and 3 A at 24–28 V
   (72–84 W).  Do not assume 40 V × 5 A.
-- The current limit is a 100 kHz average-current loop, not a cycle-by-cycle
-  hardware peak-current comparator.  The COMP3/DAC peak circuit (PA0/PA4) is
-  unused.
+- The current limit is a 100 kHz average-current loop; the COMP3/DAC
+  comparator is a fast peak **fault** backup (about 7 A), not a cycle-by-cycle
+  PWM current limiter.
 - OLED, USB and SPI2 functions are not part of this firmware; those pins are
   not configured.
 - At no load and output off, a small residual voltage (~0.3 V) can appear

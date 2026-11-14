@@ -17,6 +17,8 @@
 /* -------------------------------------------------------------------------- */
 HRTIM_HandleTypeDef hhrtim1;
 ADC_HandleTypeDef  hadc2;
+DAC_HandleTypeDef  hdac1;
+COMP_HandleTypeDef hcomp3;
 
 /* -------------------------------------------------------------------------- */
 /* ADC results: rank1 = Vout (PA6), rank2 = Iout (PA1), rank3 = Vin (PA7)      */
@@ -72,6 +74,10 @@ static volatile uint32_t s_hrtim_ready;
 /* -------------------------------------------------------------------------- */
 static inline void outputs_on(void)
 {
+    if (s_fault != PWR_FAULT_NONE)
+    {
+        return;     /* do not re-enable after a fast comparator trip */
+    }
     HRTIM1->sCommonRegs.OENR = HRTIM_OUTPUT_TA1 | HRTIM_OUTPUT_TA2;
 }
 
@@ -661,6 +667,78 @@ static void MX_HRTIM1_Init(void)
     HAL_NVIC_EnableIRQ(HRTIM1_TIMA_IRQn);
 }
 
+static void MX_DAC1_Init(void)
+{
+    DAC_ChannelConfTypeDef sConfig = {0};
+
+    hdac1.Instance = DAC1;
+    if (HAL_DAC_Init(&hdac1) != HAL_OK)
+    {
+        Error_Handler();
+    }
+
+    sConfig.DAC_Trigger = DAC_TRIGGER_NONE;
+    sConfig.DAC_OutputBuffer = DAC_OUTPUTBUFFER_ENABLE;
+    sConfig.DAC_ConnectOnChipPeripheral = DAC_CHIPCONNECT_INTERNAL;
+    if (HAL_DAC_ConfigChannel(&hdac1, &sConfig, DAC_CHANNEL_1) != HAL_OK)
+    {
+        Error_Handler();
+    }
+
+    if (HAL_DAC_SetValue(&hdac1, DAC_CHANNEL_1, DAC_ALIGN_12B_R, IOC_PEAK_DAC_CODE) != HAL_OK)
+    {
+        Error_Handler();
+    }
+    if (HAL_DAC_Start(&hdac1, DAC_CHANNEL_1) != HAL_OK)
+    {
+        Error_Handler();
+    }
+}
+
+static void MX_COMP3_Init(void)
+{
+    hcomp3.Instance = COMP3;
+    hcomp3.Init.InputPlus = COMP_INPUT_PLUS_IO1;      /* PA0 = I_PEAK_DETC */
+    hcomp3.Init.InputMinus = COMP_INPUT_MINUS_DAC1_CH1;
+    hcomp3.Init.Hysteresis = COMP_HYSTERESIS_40MV;
+    hcomp3.Init.OutputPol = COMP_OUTPUTPOL_NONINVERTED;
+    hcomp3.Init.BlankingSrce = COMP_BLANKINGSRC_NONE;
+    hcomp3.Init.TriggerMode = COMP_TRIGGERMODE_IT_RISING;
+    if (HAL_COMP_Init(&hcomp3) != HAL_OK)
+    {
+        Error_Handler();
+    }
+    if (HAL_COMP_Start(&hcomp3) != HAL_OK)
+    {
+        Error_Handler();
+    }
+
+    __HAL_COMP_COMP3_EXTI_ENABLE_RISING_EDGE();
+    __HAL_COMP_COMP3_EXTI_ENABLE_IT();
+    HAL_NVIC_SetPriority(COMP1_2_3_IRQn, 1, 0);
+    HAL_NVIC_EnableIRQ(COMP1_2_3_IRQn);
+}
+
+static void FastProtection_Init(void)
+{
+    MX_DAC1_Init();
+    MX_COMP3_Init();
+}
+
+void HAL_COMP_TriggerCallback(COMP_HandleTypeDef *hcomp)
+{
+    if (hcomp->Instance == COMP3)
+    {
+        s_fault = PWR_FAULT_PEAK_OC;
+        outputs_off();
+    }
+}
+
+void COMP1_2_3_IRQHandler(void)
+{
+    HAL_COMP_IRQHandler(&hcomp3);
+}
+
 void Power_Init(void)
 {
     reset_control();
@@ -676,6 +754,7 @@ void Power_Init(void)
 
     MX_ADC2_Init();
     MX_HRTIM1_Init();
+    FastProtection_Init();
 }
 
 /* -------------------------------------------------------------------------- */
@@ -685,6 +764,11 @@ bool Power_Start(void)
 {
     if (s_fault != PWR_FAULT_NONE)
     {
+        return false;
+    }
+    if (HAL_COMP_GetOutputLevel(&hcomp3) == COMP_OUTPUT_LEVEL_HIGH)
+    {
+        s_fault = PWR_FAULT_PEAK_OC;
         return false;
     }
     s_start_req = 1u;
@@ -775,6 +859,7 @@ const char *Power_FaultName(uint32_t fault)
     if (fault == PWR_FAULT_VIN_OV) return "VIN_OV";
     if (fault == PWR_FAULT_VOUT_OV) return "VOUT_OV";
     if (fault == PWR_FAULT_IOUT_OC) return "IOUT_OC";
+    if (fault == PWR_FAULT_PEAK_OC) return "PEAK_OC";
     return "multiple";
 }
 

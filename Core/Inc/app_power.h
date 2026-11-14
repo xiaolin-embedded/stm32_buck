@@ -17,6 +17,7 @@ typedef enum
 #define PWR_FAULT_VIN_OV    (1u << 1)
 #define PWR_FAULT_VOUT_OV   (1u << 2)
 #define PWR_FAULT_IOUT_OC   (1u << 3)
+#define PWR_FAULT_PEAK_OC   (1u << 4)
 
 typedef struct
 {

@@ -90,6 +90,45 @@ void HAL_ADC_MspInit(ADC_HandleTypeDef *hadc)
 }
 
 /* -------------------------------------------------------------------------- */
+/* DAC1 + COMP3 peak-current comparator                                       */
+/* -------------------------------------------------------------------------- */
+void HAL_DAC_MspInit(DAC_HandleTypeDef *hdac)
+{
+    GPIO_InitTypeDef gpio = {0};
+
+    if (hdac->Instance != DAC1)
+    {
+        return;
+    }
+
+    __HAL_RCC_DAC1_CLK_ENABLE();
+    __HAL_RCC_GPIOA_CLK_ENABLE();
+
+    gpio.Pin  = GPIO_PIN_4;                 /* DAC1_CH1 / COMP3_INM path */
+    gpio.Mode = GPIO_MODE_ANALOG;
+    gpio.Pull = GPIO_NOPULL;
+    HAL_GPIO_Init(GPIOA, &gpio);
+}
+
+void HAL_COMP_MspInit(COMP_HandleTypeDef *hcomp)
+{
+    GPIO_InitTypeDef gpio = {0};
+
+    if (hcomp->Instance != COMP3)
+    {
+        return;
+    }
+
+    __HAL_RCC_SYSCFG_CLK_ENABLE();
+    __HAL_RCC_GPIOA_CLK_ENABLE();
+
+    gpio.Pin  = GPIO_PIN_0;                 /* COMP3_INP = I_PEAK_DETC */
+    gpio.Mode = GPIO_MODE_ANALOG;
+    gpio.Pull = GPIO_NOPULL;
+    HAL_GPIO_Init(GPIOA, &gpio);
+}
+
+/* -------------------------------------------------------------------------- */
 /* USART2 shell                                                               */
 /* -------------------------------------------------------------------------- */
 void HAL_UART_MspInit(UART_HandleTypeDef *huart)

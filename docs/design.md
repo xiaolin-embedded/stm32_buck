@@ -124,7 +124,8 @@ the converter state, so it keeps blinking after `poweron`.
 | VIN_OV | Vin > 50 V | latch, outputs off |
 | VOUT_OV | Vout > min(max(vref, vset)+1.5 V, 40 V) | latch, outputs off |
 | IOUT_OC (sustained) | Iout > ilim+0.5 A for 2 ms | latch, outputs off |
-| IOUT_OC (fast) | Iout > 6 A immediately | latch, outputs off |
+| IOUT_OC (software fast) | filtered Iout > 6 A immediately | latch, outputs off |
+| PEAK_OC (hardware) | COMP3 peak > DAC1 threshold (≈7 A) | latch, outputs off in µs |
 
 Outputs are disabled through `HRTIM1->sCommonRegs.ODISR`, which acts
 immediately and independently of the PWM period.  The fault is latched and
@@ -133,6 +134,12 @@ reported by `status`; `reset` stops the output and clears it.
 `Power_EmergencyStop()` is also called from `Error_Handler()`, the hard/memory
 fault handlers and the FreeRTOS stack-overflow/malloc hooks so a firmware
 failure does not leave the bridge switching.
+
+The hardware peak path is COMP3 + DAC1: PA0 is `I_PEAK_DETC` (U7A, ≈222 mV/A),
+DAC1_CH1 sets the threshold (≈7 A), and the comparator EXTI sets `PEAK_OC`
+and disables the outputs independently of the ADC/control loop.  See
+[docs/digital_power.md](digital_power.md) for the threshold calculation and
+test procedure.
 
 ## 8. RTOS layout
 
@@ -176,7 +183,7 @@ stack is 2 KB.
 ## 10. Verification performed
 
 - Clean Debug and Release builds with `-Wall`, no warnings.
-- Linker map: about 58 KB flash / 18 KB RAM (Debug) and 37 KB / 18 KB
+- Linker map: about 62 KB flash / 18 KB RAM (Debug) and 39 KB / 18 KB
   (Release).  The 8 KB FreeRTOS heap dominates the RAM figure.
 - Interrupt vector table checked: SVC/PendSV/SysTick resolve to the FreeRTOS
   port and CMSIS wrapper, TIM1 update, USART2 and HRTIM1 Timer A resolve to

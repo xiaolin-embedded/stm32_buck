@@ -178,6 +178,7 @@ output is disabled after reset.
 | Vout reads wrong | The calibration gains in `app_config.h` are board-specific; verify with a DMM. |
 | Fault after a setpoint change | Downward changes ramp; if VOUT_OV still trips, check the `max(vref,vset)` OV limit. |
 | Load step trips OC | The 2 ms debounce and 6 A fast trip are in `app_config.h`; a step producing > 6 A is intentionally protected. |
+| `PEAK_OC` at high current | Hardware COMP3/DAC threshold (≈7 A, `IOC_PEAK_MA`); trim `IOC_PEAK_MV_PER_A` if the U7A sense gain differs. |
 
 ## 7. Repository and version control
 
